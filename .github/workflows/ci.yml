@@ -71,25 +71,60 @@ jobs:
           conn3x init
           conn3x apply -auto-approve
           conn3x plan -detailed-exitcode
-      # The example runs os_version every 10 seconds and file_events every
-      # 10 seconds over /etc, so both land in the results log within ~30s.
       - name: Check osqueryd logs scheduled results and file changes
+        working-directory: examples/local
+        run: sudo podman exec -i circuit-osquery sh < check.sh
+      # Restarting the container boots systemd again, so this checks osqueryd
+      # comes back by itself, still logs, and the plan has nothing to do.
+      - name: Restart the host, then check osqueryd and the plan
+        working-directory: examples/local
         run: |
-          sudo podman exec -i circuit-osquery sh -eu <<'EOF'
-          systemctl is-active osqueryd
-          osqueryi --json "SELECT version FROM osquery_info" | grep -q '"version"'
-          touch /etc/conn3x-fim-check
-          for _ in $(seq 40); do
-            if grep -q '"name":"os_version"' /var/log/osquery/osqueryd.results.log 2>/dev/null \
-              && grep -q '/etc/conn3x-fim-check' /var/log/osquery/osqueryd.results.log; then
-              exit 0
-            fi
+          sudo podman restart circuit-osquery
+          for _ in $(seq 60); do
+            case $(sudo podman exec circuit-osquery systemctl is-system-running 2>/dev/null) in running|degraded) break ;; esac
             sleep 1
           done
-          ls -la /var/log/osquery
-          journalctl -u osqueryd --no-pager | tail -n 30
-          exit 1
-          EOF
+          sudo podman exec -i circuit-osquery sh < check.sh
+          conn3x plan -detailed-exitcode
+      # No Fleet server answers, so osqueryd can't enroll, but the secret
+      # still has to reach its file on the host and stay out of state.
+      # Applying without fleet then has to delete it and bring the local
+      # config back.
+      - name: Apply with a Fleet enroll secret, then check it stayed out of state
+        working-directory: examples/local
+        run: |
+          secret=conn3x-ci-$(openssl rand -hex 12)
+          TF_VAR_enroll_secret=$secret conn3x apply -auto-approve -var 'fleet={address="127.0.0.1:8080"}'
+          [ "$(sudo podman exec circuit-osquery cat /etc/osquery/enroll_secret)" = "$secret" ]
+          [ "$(sudo podman exec circuit-osquery stat -c %a /etc/osquery/enroll_secret)" = 600 ]
+          sudo podman exec circuit-osquery grep -qx -- --enroll_secret_path=/etc/osquery/enroll_secret /etc/osquery/osquery.flags
+          if grep -q "$secret" terraform.tfstate; then
+            echo "The enroll secret is in terraform.tfstate." >&2
+            exit 1
+          fi
+          conn3x apply -auto-approve
+          sudo podman exec circuit-osquery test ! -e /etc/osquery/enroll_secret
+          conn3x plan -detailed-exitcode
+          sudo podman exec -i circuit-osquery sh < check.sh
+      # A fresh host gets the previous release, then the circuit's own pin is
+      # applied over it, the way someone raises osquery_version.
+      - name: Upgrade from osquery 5.23.1 on a fresh host, then plan again with no changes
+        working-directory: examples/local
+        env:
+          CONTAINERFILE: ${{ github.workspace }}/conn3x/test/images/${{ matrix.distro }}/Containerfile
+          PODMAN: sudo podman
+        run: |
+          ./down.sh
+          ./up.sh
+          conn3x init
+          conn3x apply -auto-approve -var osquery_version=5.23.1
+          sudo podman exec circuit-osquery osqueryi --json "SELECT version FROM osquery_info" | grep -q '"version":"5.23.1"'
+          conn3x apply -auto-approve
+          conn3x plan -detailed-exitcode
+          sudo podman exec circuit-osquery osqueryi --json "SELECT version FROM osquery_info" | grep -q '"version":"5.24.0"'
+      - name: Check the upgraded osqueryd logs scheduled results and file changes
+        working-directory: examples/local
+        run: sudo podman exec -i circuit-osquery sh < check.sh
       - name: Clean up
         if: always()
         working-directory: examples/local

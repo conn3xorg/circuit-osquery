@@ -3,6 +3,26 @@ variable "port" {
   default = 2294
 }
 
+# CI sets osquery_version to install an older release first, then upgrades
+# to the circuit's own pin by applying again without it.
+variable "osquery_version" {
+  type    = string
+  default = null
+}
+
+# CI sets these to check the enroll secret reaches the host and not state.
+variable "fleet" {
+  type    = object({ address = string })
+  default = null
+}
+
+variable "enroll_secret" {
+  type      = string
+  default   = null
+  ephemeral = true
+  sensitive = true
+}
+
 module "osquery" {
   source = "../.."
 
@@ -10,6 +30,9 @@ module "osquery" {
   ssh_port             = var.port
   ssh_private_key_file = "./id_ed25519"
   ssh_known_hosts_file = "./known_hosts"
+  osquery_version      = var.osquery_version
+  fleet                = var.fleet
+  enroll_secret        = var.enroll_secret
 
   options = {
     schedule_splay_percent = "10"
