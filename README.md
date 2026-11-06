@@ -10,7 +10,7 @@ osquery turns a Linux host into a set of tables you can query with SQL: users, p
 
 ```hcl
 module "osquery" {
-  source = "github.com/conn3xorg/circuit-osquery?ref=v0.2.0"
+  source = "github.com/conn3xorg/circuit-osquery?ref=v0.2.1"
 
   hosts                = { web = "192.168.1.50" }
   ssh_private_key_file = "~/.ssh/id_ed25519"
