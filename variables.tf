@@ -42,7 +42,8 @@ variable "ssh_become" {
 variable "osquery_version" {
   type        = string
   default     = "5.24.0"
-  description = "osquery release to install, such as \"5.24.0\". Raising it upgrades osquery in place."
+  nullable    = false
+  description = "osquery release to install, such as \"5.24.0\". Raising it upgrades osquery in place. Null means the default."
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.osquery_version))

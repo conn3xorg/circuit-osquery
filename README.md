@@ -163,6 +163,8 @@ Requires Conn3x v0.6.9 or later and systemd on each host, with outbound HTTPS to
 
 Rocky Linux 10, Fedora 45, Ubuntu 24.04 and Debian 13, with osquery 5.24.0. [examples/local](examples/local) was applied to each on arm64, and the second plan had no changes. On each, `osqueryd` was running, the 10-second `os_version` query reached `osqueryd.results.log` and a file touched under `/etc` showed up there from `file_events` within 30 seconds, and `osqueryi --json "SELECT version FROM osquery_info"` answered. CI runs the same checks on amd64. On Rocky Linux 10, an unknown option failed the apply at the check, before the restart, a 1 KB `log_rotate_size` rotated and compressed the logs, and `fleet` with a made-up address wrote the secret file with mode `0600`, kept it out of state, and left osqueryd running and retrying its enrollment.
 
+CI also restarts the container and checks osqueryd comes back and logs a new file change. It applies with a Fleet address no server answers on and a random enroll secret, checks the secret is in `/etc/osquery/enroll_secret` with mode `0600` and nowhere in `terraform.tfstate`, then applies without `fleet` and checks the file is gone and logging works again. On a fresh container it installs osquery 5.23.1, then applies the circuit's own pin over it, and checks the second plan is empty, `osquery_info` reports 5.24.0 and the logging checks pass.
+
 On an Ubuntu 24.04 droplet and a Rocky Linux 10 droplet with SELinux enforcing, both `s-1vcpu-1gb`, the example's inputs applied, the same checks passed, and after a reboot osqueryd was running, a new file change was logged and the plan was clean. On Rocky Linux osqueryd runs as `unconfined_service_t`, and the audit log had no denials.
 
 ## License
