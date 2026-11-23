@@ -179,8 +179,8 @@ circuit "osquery" {
   # than in a handler, so a restart follows the check above in the same
   # apply. On the first apply it's what starts osqueryd.
   step "restart" {
-    command {
-      command = "systemctl restart osqueryd"
+    service_action {
+      name = "osqueryd"
       triggers = {
         package = conn3x_package.osquery__package[each.key].revision
         check   = conn3x_command.osquery__check[each.key].revision
