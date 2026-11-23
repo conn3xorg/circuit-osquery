@@ -157,7 +157,7 @@ On each host, in order:
 
 ## Requirements
 
-Requires Conn3x v0.6.9 or later and systemd on each host, with outbound HTTPS to pkg.osquery.io. amd64 and arm64. The package's service caps osqueryd at 20% of one CPU, and the droplets it was tested on had 1 GB of memory.
+Requires Conn3x v0.28.0 or later and systemd on each host, with outbound HTTPS to pkg.osquery.io. amd64 and arm64. The package's service caps osqueryd at 20% of one CPU, and the droplets it was tested on had 1 GB of memory.
 
 ## Tested on
 
